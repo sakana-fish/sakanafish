@@ -1,6 +1,6 @@
 import discord
 import datetime
-#import os
+import os
 
 #list = []
 #apre = 'おさかなのサーバー'
@@ -164,9 +164,9 @@ async def s(ctx, about = "交流戦募集 {}".format(datetime.date.today()), cnt
         test.add_field(name=f"24@{cnt4} ", value=' '.join(list4), inline=True)
         await msg.edit(embed=test)
         # リアクション消す。メッセージ管理権限がないとForbidden:エラーが出ます。
-        await msg.remove_reaction(str(reaction.emoji), user)
+        #await msg.remove_reaction(str(reaction.emoji), user)
 
   
 
-#client.run(os.getenv('TOKEN'))
-client.run('NzA0NzczODY3OTcyOTg0ODYy.Xqld5w.fQL2NHaXLk-cyRUCg5M7kMgWi5w')
+token = os.environ['DISCORD_BOT_TOKEN']
+client.run('token')
