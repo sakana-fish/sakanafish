@@ -250,5 +250,5 @@ async def on_message(message: discord.Message):
         message.guild.voice_client.stop()
         await(await message.channel.send("スキップしました。")).delete(delay=3)
 
-token = os.environ['DISCORD_BOT_TOKEN4']
+token = os.environ['DISCORD_BOT_TOKEN']
 client.run(token)
