@@ -1,12 +1,59 @@
-import discord
-import datetime
 import os
-
-#list = []
-#apre = 'おさかなのサーバー'
-
+import discord
 from discord.ext import commands
+import youtube_dl
 import asyncio
+import ffmpeg
+import random
+import datetime
+
+# Suppress noise about console usage from errors
+youtube_dl.utils.bug_reports_message = lambda: ''
+
+ytdl_format_options = {
+    'format': 'worstaudio/worst',
+    'outtmpl': '%(extractor)s-%(id)s-%(title)s.%(ext)s',
+    'restrictfilenames': True,
+    'noplaylist': True,
+    'nocheckcertificate': True,
+    'ignoreerrors': False,
+    'logtostderr': False,
+    'quiet': True,
+    'no_warnings': True,
+    'default_search': 'auto',
+    'source_address': '0.0.0.0' # bind to ipv4 since ipv6 addresses cause issues sometimes
+}
+
+ffmpeg_options = {
+    'options': '-vn'
+}
+
+ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
+
+
+class YTDLSource(discord.PCMVolumeTransformer):
+    def __init__(self, source, *, data, volume=0.5):
+        super().__init__(source, volume)
+
+        self.data = data
+
+        self.title = data.get('title')
+        self.url = data.get('url')
+
+    @classmethod
+    async def from_url(cls, url, *, loop=None, stream=False):
+        loop = loop or asyncio.get_event_loop()
+        data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
+
+        try:
+            if 'entries' in data:
+                # take first item from a playlist
+                data = data['entries'][0]
+        except:
+            pass
+        
+        filename = data['url'] if stream else ytdl.prepare_filename(data)
+        return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data),filename
 
 client = commands.Bot(command_prefix='.')
 @client.event
@@ -16,208 +63,192 @@ async def on_ready():
     print(client.user.id)
     print('------')  
 
-@client.command()
-async def cal(ctx2):
-  i = 0
-  a1 = 0
-  a2 = 0
-  b1 = 0
-  b2 = 0
-  c1 = ""
-  c2 = str(a2)+" - "+str(b2)
-  cal = discord.Embed(title="🐟即時集計🐟",color=0xe74c3c,description="{} @{}\n{}".format(c2,12-i,c1))
-  result = await ctx2.send(embed=cal)
-  await ctx2.send("結果を入力してください")
+rd=[] #request_data
+@client.event
+async def on_message(message: discord.Message):
+    # メッセージの送信者がbotだった場合は無視する
+    if message.author.bot:
+        return
 
-  for k in range(12):
-    i += 1
-    check = 0
-    while check == 0:
-      rank = await client.wait_for('message')
-      rank = rank.content
-      await ctx2.channel.purge(limit=1)
-      
-      #print(rank)
-      if len(rank) == 6:        
-        check = 1
-        #print("OK")
-      else:
-        await ctx2.send("try again")
-    
-    ranklist = ''
-    a1 = 0
-    for j in range(6):
-      ranklist += str(int(rank[j],16))+" "
-      point = int(rank[j],16)
-      if point == 1:
-        point = 15
-      elif point == 2:
-        point = 12
-      else:
-        point = 13-point
-      a1 += point
-      #print(a1)
+    if message.content == (".music"):
+        await message.delete()
+        print('music')
+        text = '`.p <検索キーワード>`: 音楽再生\n`.n`: 次の曲\n`.loop`: ループon/off\n`.q`: キュー表示\n`.dis`: bot切断'
+        msg = discord.Embed(title='音楽機能',description=text,color=0x0caee4)
+        await message.channel.send(embed=msg)
 
-    b1 = 82-a1
-    a2 += a1
-    b2 += b1
-    c1 += "race"+str(i)+"\t"+str(a1)+" - "+str(b1)+"\t点差 "+str(a1-b1)+"\t順位 "+ranklist+"\n"
-    c2 = str(a2)+" - "+str(b2)+"\t点差 "+str(a2-b2)
-    cal = discord.Embed(title="🐟即時集計🐟",color=0xe74c3c,description="{} @{}\n順位 {}\n--------------------------\n{}".format(c2,12-i,ranklist,c1))
-    await result.edit(embed=cal)
-    #print(a1,a2,b1,b2,c1,c2)    
-    
-@client.command()
-async def s(ctx, about = "交流戦募集 {}".format(datetime.date.today()), cnt = 6, settime = 43200):
-    cnt, settime = int(cnt), float(settime)
-    #a = ctx.channel.name
-    #print(a)
-    #list.append(0)
-    #b = len(list)
-    #print(b)
-  
-    list1 = [">"]
-    list2 = [">"]
-    list3 = [">"]
-    list4 = [">"]
-    mem1 = []
-    mem2 = []
-    mem3 = []
-    mem4 = []
-    cnt2 = 6
-    cnt3 = 6
-    cnt4 = 6
-    check1 = 0
-    check2 = 0
-    check3 = 0
-    check4 = 0
+    if message.content.startswith(".p"):
+        
+        if message.author.voice is None:
+            return
 
-    test = discord.Embed(title=about,colour=0x1e90ff)
-    #test.add_field(name=f"交流戦\n", value=None, inline=True)
-    test = discord.Embed(title=about,colour=0x1e90ff)
-    test.add_field(name=f"21@{cnt} ", value=' '.join(list1), inline=True)
-    test.add_field(name=f"22@{cnt2} ", value=' '.join(list2), inline=True)
-    test.add_field(name=f"23@{cnt3} ", value=' '.join(list3), inline=True)
-    test.add_field(name=f"24@{cnt4} ", value=' '.join(list4), inline=True)
-    msg = await ctx.send(embed=test)
-    a = ctx.message.id
-    print(a)
-    a = ctx.message.content
-    print(a)
-    #投票の欄
+        # ボイスチャンネルに接続する
+        if message.guild.voice_client is None:
+            await message.author.voice.channel.connect()
+            
+        url = message.content[3:]
+        await message.delete()
+        if url!='':
+            await(await message.channel.send('Loading...')).delete(delay=3)
+            files = os.listdir()
+            if len(files)>1000:
+                for f in files:
+                    if 'youtube' in f:
+                        os.remove(f)
+            # youtubeから音楽をダウンロードする
+            player,filename = await YTDLSource.from_url(url, loop=client.loop)
+            print(player.title)
+            # 再生する
 
-    await msg.add_reaction('🇦')
-    await msg.add_reaction('🇧')
-    await msg.add_reaction('🇨')
-    await msg.add_reaction('🇩')
-    await msg.add_reaction('✖')
-    #print(msg.id)
+            try:
+                with open('userdata.txt', mode='a', encoding='shift_jis') as f:
+                    text = f'{datetime.datetime.now()} | {player.title} | {message.guild.name}\n'
+                    f.write(text)
+            except:
+                pass
 
-    def check(reaction, user):
-        emoji = str(reaction.emoji)
-        if user.bot == True:    # botは無視
-            pass
-        else:
-            return emoji
+            def play_next(filename):
+                #通話に誰もいなかったらストップ
+                try:
+                    if len(message.guild.voice_client.channel.members)==1:
+                        message.guild.voice_client.stop()
+                        return
+                except:
+                    pass
 
-    while len(list1)-1 <= 10:
-        try:
-            reaction, user = await client.wait_for('reaction_add', timeout=settime, check=check)
-        except asyncio.TimeoutError:
-            #await ctx.send('残念、人が足りなかったようだ...')
-            break
-        else:
-            #if len(list) != b:
-            #  break
-            #else:
-            if msg.id == reaction.message.id:
-                print(str(reaction.emoji))
-                print(reaction.message.id)
-                print(reaction.message.content)
-                if str(reaction.emoji) == '🇦':
-                    list1.append(user.name)
-                    mem1.append(user.mention)
-                    cnt -= 1
-                    #test = discord.Embed(title=about,colour=0x1e90ff)
-                    #test.add_field(name=f"21@{cnt} ", value=' '.join(list1), inline=True)
-                    #test.add_field(name=f"22@{cnt2} ", value=' '.join(list2), inline=True)
-                    #await msg.edit(embed=test)
-                    if cnt == 0:
-                      if check1 == 0:
-                        member1 = ' '.join(mem1)
-                        await ctx.send("21〆 {}".format(member1))
-                        check1 +=1
-                    """if cnt == 0:
-                        test = discord.Embed(title=about,colour=0x1e90ff)
-                        test.add_field(name=f"あと__{cnt}__人 募集中\n", value='\n'.join(list1), inline=True)
-                        await msg.edit(embed=test)
-                        finish = discord.Embed(title=about,colour=0x1e90ff)
-                        finish.add_field(name="おっと、メンバーがきまったようだ",value='\n'.join(list1), inline=True)
-                        await ctx.send(embed=finish)
-                    """    
-                if str(reaction.emoji) == '🇧':
-                    list2.append(user.name)
-                    mem2.append(user.mention)
-                    cnt2 -= 1
-                    if cnt2 == 0:
-                      if check2 == 0:
-                        member2 = ' '.join(mem2)
-                        await ctx.send("22〆 {}".format(member2))
-                        check2 +=1
-
-                if str(reaction.emoji) == '🇨':
-                    list3.append(user.name)
-                    mem3.append(user.mention)
-                    cnt3 -= 1
-                    if cnt3 == 0:
-                      if check3 == 0:
-                        member3 = ' '.join(mem3)
-                        await ctx.send("23〆 {}".format(member3))
-                        check3 +=1
-
-                if str(reaction.emoji) == '🇩':
-                    list4.append(user.name)
-                    mem4.append(user.mention)
-                    cnt4 -= 1
-                    if cnt4 == 0:
-                      if check4 == 0:
-                        member4 = ' '.join(mem4)
-                        await ctx.send("24〆 {}".format(member4))
-                        check4 +=1
-      
-                elif str(reaction.emoji) == '✖':
-                    if user.name in list1:
-                        list1.remove(user.name)
-                        mem1.remove(user.mention)
-                        cnt += 1
-                        #test = discord.Embed(title=about,colour=0x1e90ff)
-                        #test.add_field(name=f"あと__{cnt}__人 募集中\n", value='\n'.join(list1), inline=True)
-                        #await msg.edit(embed=test)
-                    if user.name in list2:
-                        list2.remove(user.name)
-                        mem2.remove(user.mention)
-                        cnt2 += 1
-                    if user.name in list3:
-                        list3.remove(user.name)
-                        mem3.remove(user.mention)
-                        cnt3 += 1
-                    if user.name in list4:
-                        list4.remove(user.name)
-                        mem4.remove(user.mention)
-                        cnt4 += 1        
+                ok=0
+                n=0
+                for d in rd:
+                    if d[0] == message.guild.id:
+                        ok=d[1]
+                        break
                     else:
+                        n+=1
+                #loop onなら同じ曲
+                if ok == 1:
+                    try:
+                        message.guild.voice_client.play(discord.FFmpegPCMAudio(filename),after=lambda e:play_next(filename))
+                    except:
                         pass
+                else:
+                #loop offなら次の曲
+                    if n<len(rd):
+                        if len(rd[n])>2:
+                            filename = d[2]
+                            title = d[3]
+                            rd[n].pop(2)
+                            rd[n].pop(2)
+                            try:
+                                message.guild.voice_client.play(discord.FFmpegPCMAudio(filename),after=lambda e:play_next(filename))
+                            except:
+                                pass
+                    #次の曲が無かったらストップ
+                    else:
+                        message.guild.voice_client.stop()
+                        
+            # 再生中の場合はキューに追加
+            if message.guild.voice_client.is_playing():
+                ok=0
+                n=0
+                for d in rd:
+                    if d[0] == message.guild.id:
+                        ok=1
+                        break
+                    else:
+                        n+=1
+                if ok==0:
+                    rd.append([message.guild.id,0])
+                rd[n].append(filename)
+                rd[n].append(player.title)
+                queue = ''
+                for i in range((len(rd[n])-2)//2):
+                    queue += f'{i+1}: {rd[n][3+2*i]}\n'
+                text = discord.Embed(title='キューに追加しました' ,description=f'{player.title}\n--------------\n{queue}',color=0xa60ced)
+                await(await message.channel.send(embed=text)).delete(delay=10)
+                
+            else:
+                text = discord.Embed(title='再生中' ,description=f'{player.title}')
+                await(await message.channel.send(embed=text)).delete(delay=10)
+                #message.guild.voice_client.play(discord.FFmpegPCMAudio(filename))
+                message.guild.voice_client.play(discord.FFmpegPCMAudio(filename),after=lambda e:play_next(filename))
+    
+    elif message.content == ".dis":
+        await message.delete()
+        if message.author.voice is None:
+            return
+        if message.guild.voice_client is None:
+            return
 
-        test = discord.Embed(title=about,colour=0x1e90ff)
-        test.add_field(name=f"21@{cnt} ", value=' '.join(list1), inline=True)
-        test.add_field(name=f"22@{cnt2} ", value=' '.join(list2), inline=True)
-        test.add_field(name=f"23@{cnt3} ", value=' '.join(list3), inline=True)
-        test.add_field(name=f"24@{cnt4} ", value=' '.join(list4), inline=True)
-        await msg.edit(embed=test)
-        # リアクション消す。メッセージ管理権限がないとForbidden:エラーが出ます。
-        await msg.remove_reaction(str(reaction.emoji), user)
+        # 切断する
+        await message.guild.voice_client.disconnect()
+        await(await message.channel.send("切断しました。")).delete(delay=3)
 
-  
+    elif message.content == ".q" or message.content == ".queue":
+        await message.delete()
+        if message.author.voice is None:
+            return
+        if message.guild.voice_client is None:
+            return
 
-token = os.environ['DISCORD_BOT_TOKEN']
-client.run('token')
+        ok=0
+        n=0
+        for d in rd:
+            if d[0] == message.guild.id:
+                ok=1
+                break
+            else:
+                n+=1
+        if ok==0:
+            await(await message.channel.send('`全曲再生済み`')).delete(delay=10)
+            return
+        if len(rd[n])<3:
+            await(await message.channel.send('`全曲再生済み`')).delete(delay=10)
+            return
+
+        queue = ''
+        for i in range((len(d)-2)//2):
+            queue += f'{i+1}: {rd[n][3+2*i]}\n'
+        text = discord.Embed(title='キュー' ,description=f'{queue}',color=0xa60ced)
+        await(await message.channel.send(embed=text)).delete(delay=10)
+        
+
+    elif message.content == ".loop":
+        await message.delete()
+        if message.author.voice is None:
+            return
+        if message.guild.voice_client is None:
+            return
+        ok=0
+        n=0
+        for d in rd:
+            if d[0] == message.guild.id:
+                ok=1
+                break
+            else:
+                n+=1
+        if ok==0:
+            rd.append([message.guild.id,0])
+            d=rd[len(rd)-1]
+
+        ok=1-rd[n][1]
+        rd[n][1]=ok
+        if ok == 1:
+            text = '`loop on`'
+        else:
+            text = '`loop off`'
+        await(await message.channel.send(text)).delete(delay=5)
+
+    elif message.content == ".n":
+        await message.delete()
+        if message.guild.voice_client is None:
+            return
+
+        # 再生中ではない場合は実行しない
+        if not message.guild.voice_client.is_playing():
+            return
+
+        message.guild.voice_client.stop()
+        await(await message.channel.send("スキップしました。")).delete(delay=3)
+
+token = os.environ['DISCORD_BOT_TOKEN4']
+client.run(token)
