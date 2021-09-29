@@ -1,6 +1,8 @@
 import os
 import discord
 from discord.ext import commands
+
+"""
 import youtube_dl
 import asyncio
 import ffmpeg
@@ -249,6 +251,7 @@ async def on_message(message: discord.Message):
 
         message.guild.voice_client.stop()
         await(await message.channel.send("スキップしました。")).delete(delay=3)
+"""
 
 token = os.environ['DISCORD_BOT_TOKEN']
 client.run(token)
